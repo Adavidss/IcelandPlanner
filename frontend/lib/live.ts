@@ -43,18 +43,56 @@ export interface KpNow {
   time: string;
 }
 
-/** Rows: [time_tag, Kp, a_running, station_count]; row 0 is the header. */
+export interface KpPoint {
+  /** Zone-less UTC "2026-07-10T21:00:00" (Iceland local == UTC year-round). */
+  time: string;
+  kp: number;
+  kind: "observed" | "estimated" | "predicted";
+}
+
+/** NOAA 3-day Kp forecast (3-hour steps, ~last week observed + 3 days ahead). */
+export async function fetchKpForecast(): Promise<KpPoint[] | null> {
+  try {
+    const r = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json", {
+      cache: "no-cache",
+    });
+    if (!r.ok) return null;
+    const raw = (await r.json()) as unknown[];
+    if (!Array.isArray(raw)) return null;
+    const points: KpPoint[] = [];
+    for (const row of raw) {
+      // Object rows {time_tag, kp, observed} (current shape) or legacy array rows.
+      const o = row as { time_tag?: string; kp?: unknown; observed?: string };
+      const time = o.time_tag ?? (Array.isArray(row) ? String(row[0]) : null);
+      const kp = Number(o.kp ?? (Array.isArray(row) ? row[1] : NaN));
+      const kindRaw = o.observed ?? (Array.isArray(row) ? String(row[2]) : "");
+      if (!time || time === "time_tag" || !Number.isFinite(kp)) continue;
+      const kind = kindRaw === "observed" || kindRaw === "estimated" ? kindRaw : "predicted";
+      points.push({ time, kp, kind });
+    }
+    return points.length > 0 ? points.sort((a, b) => a.time.localeCompare(b.time)) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Latest planetary Kp. Handles both SWPC shapes: object rows
+ *  {time_tag, Kp, …} (current) and legacy [time_tag, Kp, …] arrays. */
 export async function fetchKp(): Promise<KpNow | null> {
   try {
     const r = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json", {
       cache: "no-cache",
     });
     if (!r.ok) return null;
-    const rows = (await r.json()) as string[][];
-    const last = rows[rows.length - 1];
-    if (!last || rows.length < 2) return null;
-    const kp = Number(last[1]);
-    return Number.isFinite(kp) ? { kp, time: last[0] } : null;
+    const rows = (await r.json()) as unknown[];
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const row = rows[i] as { time_tag?: string; Kp?: unknown; kp?: unknown };
+      const time = row.time_tag ?? (Array.isArray(rows[i]) ? String((rows[i] as unknown[])[0]) : null);
+      const kp = Number(row.Kp ?? row.kp ?? (Array.isArray(rows[i]) ? (rows[i] as unknown[])[1] : NaN));
+      if (time && time !== "time_tag" && Number.isFinite(kp)) return { kp, time };
+    }
+    return null;
   } catch {
     return null;
   }

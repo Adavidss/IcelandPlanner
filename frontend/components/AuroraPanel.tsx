@@ -4,6 +4,7 @@
 // your travel month is the current month, informational otherwise.
 // Jun–Jul callers should render the Midnight Sun card instead (Home does).
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { AuroraIcon } from "@/components/icons";
@@ -58,14 +59,19 @@ export function AuroraPanel() {
         </p>
       )}
       {dark && isNow && <p className="mt-1 text-xs text-muted">Dark window tonight: {dark}</p>}
-      <a
-        href={EXTERNAL.aurora}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-2 inline-block text-xs font-medium text-aurora hover:underline"
-      >
-        Cloud-cover forecast (vedur.is) ↗
-      </a>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+        <Link href="/map/?view=aurora" className="text-xs font-medium text-aurora hover:underline">
+          Track tonight on the map →
+        </Link>
+        <a
+          href={EXTERNAL.aurora}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs font-medium text-aurora hover:underline"
+        >
+          Cloud forecast (vedur.is) ↗
+        </a>
+      </div>
     </div>
   );
 }

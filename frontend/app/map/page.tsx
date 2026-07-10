@@ -7,26 +7,30 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { AddToTripButton } from "@/components/AddToTripButton";
-import { IcelandMap } from "@/components/IcelandMap";
+import { IcelandMap, type SkyPoint } from "@/components/IcelandMap";
+import { AuroraIcon, SearchIcon, WindIcon } from "@/components/icons";
 import { SeasonBadge } from "@/components/SeasonBadge";
-import { SearchIcon } from "@/components/icons";
 import { FilterChips } from "@/components/ui";
 import {
   getAttractions, getAttractionsExtra, getPoi, getRoadGeometry, getRouteGeometry, getRoutes,
 } from "@/lib/api";
 import { CATEGORY_META, POI_KIND_META } from "@/lib/categories";
+import { daylightFor, moonFor } from "@/lib/daylight";
 import { distanceLabel, haversineKm } from "@/lib/geo";
-import { getHazards, getRoads } from "@/lib/live";
+import { EXTERNAL, fetchKp, fetchKpForecast, getHazards, getRoads, getWeather, type KpNow, type KpPoint } from "@/lib/live";
 import { scoreAt } from "@/lib/season";
 import { useSeason } from "@/lib/season-context";
+import { parseIcelandTime, pickTonightHour, SKY_META, skyQuality } from "@/lib/skycheck";
 import { storeGet, storeSet } from "@/lib/store";
 import { useTrip } from "@/lib/trip";
 import { REGION_NAMES } from "@/lib/types";
 import type {
-  Attraction, HazardsFile, Poi, PoiKind, RoadGeometryFile, RoadsFile, RouteGeometry, RouteInfo,
+  Attraction, HazardsFile, Poi, PoiKind, RoadGeometryFile, RoadsFile, RouteGeometry, RouteInfo, WeatherFile,
 } from "@/lib/types";
 
-type LayerKey = "attractions" | "more" | "routes" | "food" | "fuel" | "pool" | "grocery" | "stay" | "conditions" | "hazards";
+type LayerKey =
+  | "attractions" | "more" | "routes" | "food" | "fuel" | "pool" | "grocery" | "stay"
+  | "conditions" | "hazards" | "aurora" | "weather";
 
 const LAYER_META: { key: LayerKey; label: string; default: boolean }[] = [
   { key: "attractions", label: "Attractions", default: true },
@@ -41,7 +45,15 @@ const LAYER_META: { key: LayerKey; label: string; default: boolean }[] = [
   { key: "hazards", label: "Hazards", default: false },
 ];
 
-const DEFAULT_LAYERS = Object.fromEntries(LAYER_META.map((l) => [l.key, l.default])) as Record<LayerKey, boolean>;
+/** Country-wide condition views — their own chips row under the categories. */
+const VIEW_META: { key: LayerKey; label: string }[] = [
+  { key: "aurora", label: "Aurora tonight" },
+  { key: "weather", label: "Weather now" },
+];
+
+const DEFAULT_LAYERS = Object.fromEntries(
+  [...LAYER_META, ...VIEW_META].map((l) => [l.key, "default" in l ? l.default : false]),
+) as Record<LayerKey, boolean>;
 
 function matches(q: string, hay: string): boolean {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -74,6 +86,9 @@ function MapPageInner() {
   const [roads, setRoads] = useState<RoadsFile | null>(null);
   const [roadGeometry, setRoadGeometry] = useState<RoadGeometryFile | null>(null);
   const [hazards, setHazards] = useState<HazardsFile | null>(null);
+  const [weather, setWeather] = useState<WeatherFile | null>(null);
+  const [kpNow, setKpNow] = useState<KpNow | null>(null);
+  const [kpForecast, setKpForecast] = useState<KpPoint[] | null>(null);
   const [category, setCategory] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -92,6 +107,10 @@ function MapPageInner() {
     const layer = params.get("layer") as LayerKey | null;
     if (layer && LAYER_META.some((l) => l.key === layer)) {
       setLayers((prev) => ({ ...prev, [layer]: true }));
+    }
+    const view = params.get("view") as LayerKey | null;
+    if (view && VIEW_META.some((v) => v.key === view)) {
+      setLayers((prev) => ({ ...prev, [view]: true }));
     }
     const place = params.get("place");
     if (place) setFocusId(place);
@@ -136,6 +155,13 @@ function MapPageInner() {
     }
     if (layers.hazards && !hazards) getHazards().then(setHazards);
   }, [layers.conditions, layers.hazards, roads, hazards]);
+  useEffect(() => {
+    if ((layers.aurora || layers.weather) && !weather) getWeather().then(setWeather);
+    if (layers.aurora && !kpNow) {
+      fetchKp().then(setKpNow);
+      fetchKpForecast().then(setKpForecast);
+    }
+  }, [layers.aurora, layers.weather, weather, kpNow]);
 
   // Debounced search.
   useEffect(() => {
@@ -143,12 +169,30 @@ function MapPageInner() {
     return () => clearTimeout(t);
   }, [query]);
 
+  const auroraSpots = useMemo(
+    () => (layers.aurora ? attractions.filter((a) => a.tags?.includes("auroraSpot")) : null),
+    [layers.aurora, attractions],
+  );
+
   const visibleAttractions = useMemo(() => {
     if (!layers.attractions) return null;
     let list = attractions;
     if (category) list = list.filter((a) => a.category === category);
+    // Aurora view re-renders its spots glowing — don't double-draw them.
+    if (layers.aurora) list = list.filter((a) => !a.tags?.includes("auroraSpot"));
     return list;
-  }, [layers.attractions, attractions, category]);
+  }, [layers.attractions, attractions, category, layers.aurora]);
+
+  const skyPoints = useMemo<SkyPoint[] | null>(() => {
+    if (!layers.aurora || !weather) return null;
+    const pts: SkyPoint[] = [];
+    for (const station of weather.stations) {
+      const h = pickTonightHour(station);
+      if (!h) continue;
+      pts.push({ station, quality: skyQuality(h.desc), desc: h.desc, at: h.time });
+    }
+    return pts.length > 0 ? pts : null;
+  }, [layers.aurora, weather]);
 
   const activePois = useMemo(() => {
     const out: Poi[] = [];
@@ -260,6 +304,27 @@ function MapPageInner() {
         </div>
       )}
 
+      {/* country-wide views — their own line */}
+      <div className="mt-2 flex items-center gap-2">
+        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted">Views</span>
+        {VIEW_META.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => toggleLayer(key)}
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
+              layers[key]
+                ? "border-aurora/50 bg-aurora/15 font-medium text-strong"
+                : "border-border bg-surface text-muted hover:bg-surface-2"
+            }`}
+          >
+            {key === "aurora" ? <AuroraIcon size={13} className={layers[key] ? "text-aurora" : ""} /> : <WindIcon size={13} />}
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {layers.aurora && <AuroraStrip kpNow={kpNow} kpForecast={kpForecast} skyPoints={skyPoints} />}
+
       <div className="mt-2">
         <IcelandMap
           attractions={visibleAttractions}
@@ -268,12 +333,33 @@ function MapPageInner() {
           routes={routeLayerData}
           conditions={conditionsData}
           hazards={layers.hazards ? (hazards?.points ?? null) : null}
+          weatherStations={layers.weather ? (weather?.stations ?? null) : null}
+          auroraSky={skyPoints}
+          auroraSpots={auroraSpots}
           travelMonth={month}
           focusId={focusId}
           routesOpacity={layers.conditions ? 0.25 : 0.8}
           onAddStop={(seed) => addStop(seed)}
           onPoiHidden={setPoiHidden}
         />
+        {layers.weather && (
+          <p className="mt-1.5 rounded-lg bg-surface px-3 py-1.5 text-xs text-muted">
+            Station chips show the forecast right now: temperature · wind (arrow = where it blows). Amber border ≥ 15
+            m/s, red ≥ 20 — click a chip for the next hours.
+          </p>
+        )}
+        {layers.aurora && skyPoints && (
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-surface px-3 py-1.5 text-xs text-muted">
+            <span>Tonight&apos;s sky per station:</span>
+            {(["clear", "mixed", "covered"] as const).map((q) => (
+              <span key={q} className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: SKY_META[q].color }} />
+                {SKY_META[q].label}
+              </span>
+            ))}
+            <span>Glowing markers = good viewing spots.</span>
+          </p>
+        )}
         {poiHidden && (
           <p className="mt-1.5 rounded-lg bg-surface px-3 py-1.5 text-xs text-muted">
             Zoom in to see food, fuel, pools, shops and stays (showing up to 400 in view).
@@ -312,6 +398,85 @@ function MapPageInner() {
           ) : null,
         )}
       </div>
+    </div>
+  );
+}
+
+function AuroraStrip({
+  kpNow,
+  kpForecast,
+  skyPoints,
+}: {
+  kpNow: KpNow | null;
+  kpForecast: KpPoint[] | null;
+  skyPoints: SkyPoint[] | null;
+}) {
+  const now = new Date();
+  const dl = daylightFor(now);
+  const moon = moonFor(now);
+
+  // Max Kp in the next 24 h of forecast (estimated/predicted points).
+  const kpNext24 = useMemo(() => {
+    if (!kpForecast) return null;
+    const start = Date.now() - 90 * 60_000;
+    const end = Date.now() + 24 * 3_600_000;
+    let max: number | null = null;
+    for (const p of kpForecast) {
+      const t = parseIcelandTime(p.time);
+      if (t === null || t < start || t > end) continue;
+      if (max === null || p.kp > max) max = p.kp;
+    }
+    return max;
+  }, [kpForecast]);
+
+  const clearCount = skyPoints?.filter((p) => p.quality !== "covered").length ?? null;
+
+  let verdict: string;
+  let tone = "text-fg";
+  if (!dl.darkWindow) {
+    verdict = "Bright nights right now — no real darkness for aurora. The show returns when nights darken in late August.";
+    tone = "text-muted";
+  } else {
+    const kpBest = Math.max(kpNow?.kp ?? 0, kpNext24 ?? 0);
+    if (kpBest >= 4) {
+      verdict = "Strong night potential — get somewhere dark and be patient.";
+      tone = "font-medium text-aurora";
+    } else if (kpBest >= 2.5) {
+      verdict = "Decent potential — Iceland sits under the auroral oval, so Kp 3 is often plenty.";
+    } else {
+      verdict = "Quiet sun — faint bands are still possible under clear, dark, moonless skies.";
+      tone = "text-muted";
+    }
+    if (clearCount === 0) verdict += " Skies look covered everywhere, though — check the cloud map before driving out.";
+    if (moon.bright && dl.darkWindow) verdict += ` Bright moon tonight (${Math.round(moon.fraction * 100)}%) — faint displays wash out.`;
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-aurora/30 bg-aurora/5 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
+        <span className="inline-flex items-center gap-1.5 font-semibold text-strong">
+          <AuroraIcon size={15} className="text-aurora" /> Aurora tonight
+        </span>
+        <span className="text-fg">
+          Kp now: <span className="font-semibold text-strong">{kpNow ? kpNow.kp : "…"}</span>
+        </span>
+        {kpNext24 !== null && (
+          <span className="text-fg">
+            Next 24 h: up to <span className="font-semibold text-strong">Kp {kpNext24}</span>
+          </span>
+        )}
+        <span className="text-fg">
+          Dark: <span className="font-medium text-strong">{dl.darkWindow ?? "no real darkness"}</span>
+        </span>
+        <span className="text-fg">
+          Moon: <span className="font-medium text-strong">{Math.round(moon.fraction * 100)}%</span>
+          <span className="text-muted"> {moon.phaseName.toLowerCase()}{moon.set ? `, sets ${moon.set}` : moon.rise ? `, rises ${moon.rise}` : ""}</span>
+        </span>
+        <a href={EXTERNAL.aurora} target="_blank" rel="noreferrer" className="text-xs font-medium text-aurora hover:underline">
+          Cloud map (vedur.is) ↗
+        </a>
+      </div>
+      <p className={`mt-1.5 text-sm ${tone}`}>{verdict}</p>
     </div>
   );
 }

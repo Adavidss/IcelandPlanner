@@ -17,8 +17,9 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 
 import { CATEGORY_META, POI_KIND_META } from "@/lib/categories";
-import { esc, formatUpdated, httpUrl } from "@/lib/format";
+import { esc, formatForecastTime, formatUpdated, httpUrl } from "@/lib/format";
 import { scoreAt } from "@/lib/season";
+import { SKY_META, windFromDeg, type SkyQuality } from "@/lib/skycheck";
 import type {
   Attraction,
   HazardPoint,
@@ -27,8 +28,17 @@ import type {
   RoadsFile,
   RouteGeometry,
   RouteInfo,
+  StationForecast,
   TripStopSeed,
 } from "@/lib/types";
+
+/** One station's aurora sky-check for tonight (computed by the map page). */
+export interface SkyPoint {
+  station: StationForecast;
+  quality: SkyQuality;
+  desc: string | null;
+  at: string;
+}
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const INK = "#0a0a0b";
@@ -49,6 +59,38 @@ function dotIcon(color: string, size: number, square = false): string {
   return (
     `<div style="width:${size}px;height:${size}px;border-radius:${square ? "2px" : "9999px"};background:${color};` +
     `border:1.5px solid ${INK};box-shadow:0 0 0 1px ${color}88"></div>`
+  );
+}
+
+function auroraSpotIcon(glyph: string): string {
+  return (
+    `<div style="width:20px;height:20px;border-radius:9999px;background:#34d399;border:2px solid ${INK};` +
+    `box-shadow:0 0 6px 2px #34d39999, 0 0 16px 6px #34d39944;display:flex;align-items:center;` +
+    `justify-content:center;color:${INK};font:700 11px/1 system-ui,sans-serif">${glyph}</div>`
+  );
+}
+
+function skyDotIcon(color: string): string {
+  return (
+    `<div style="width:13px;height:13px;border-radius:9999px;background:${color};` +
+    `border:2px solid ${INK};box-shadow:0 0 0 1px ${color}"></div>`
+  );
+}
+
+function weatherChipIcon(tempC: number | null, windMs: number | null, windDir: string | null): string {
+  const wind = windMs ?? 0;
+  const tone = wind >= 20 ? "#ef4444" : wind >= 15 ? "#f59e0b" : "#3f3f46";
+  const deg = windFromDeg(windDir);
+  // Arrow points where the wind BLOWS (from-direction + 180°).
+  const arrow =
+    deg === null
+      ? ""
+      : `<span style="display:inline-block;transform:rotate(${(deg + 180) % 360}deg);font-size:11px">↑</span>`;
+  return (
+    `<div style="display:inline-flex;align-items:center;gap:4px;background:rgba(10,10,11,.92);` +
+    `border:1.5px solid ${tone};border-radius:8px;padding:2px 7px;color:#e4e4e7;` +
+    `font:600 11px/1.2 system-ui,sans-serif;white-space:nowrap">` +
+    `${tempC !== null ? `${Math.round(tempC)}°` : "–"}&nbsp;${arrow}&nbsp;${windMs ?? "–"}<span style="opacity:.65">m/s</span></div>`
   );
 }
 
@@ -88,6 +130,9 @@ export function IcelandMap({
   routes = null,
   conditions = null,
   hazards = null,
+  weatherStations = null,
+  auroraSky = null,
+  auroraSpots = null,
   travelMonth,
   focusId = null,
   fitKey = "iceland",
@@ -102,6 +147,12 @@ export function IcelandMap({
   routes?: { info: RouteInfo; geometry: RouteGeometry }[] | null;
   conditions?: { geometry: RoadGeometryFile; roads: RoadsFile } | null;
   hazards?: HazardPoint[] | null;
+  /** Weather view: per-station now-chips with hourly popups. */
+  weatherStations?: StationForecast[] | null;
+  /** Aurora view: tonight's sky check per station. */
+  auroraSky?: SkyPoint[] | null;
+  /** Aurora view: glowing viewing-spot markers (popups like attractions). */
+  auroraSpots?: Attraction[] | null;
   travelMonth: number;
   focusId?: string | null;
   fitKey?: string;
@@ -220,17 +271,17 @@ export function IcelandMap({
       }
 
       // ---- attractions -------------------------------------------------------
-      const addAttraction = (a: Attraction, muted: boolean) => {
+      const addAttraction = (a: Attraction, muted: boolean, glow = false) => {
         const meta = CATEGORY_META[a.category] ?? CATEGORY_META.other;
         const score = scoreAt(a.months, travelMonth);
-        const size = muted ? 14 : 18;
+        const size = glow ? 20 : muted ? 14 : 18;
         const marker = L.marker([a.lat, a.lng], {
           icon: L.divIcon({
             className: "",
-            html: catIcon(meta.color, meta.glyph, size, muted || score === 0),
+            html: glow ? auroraSpotIcon(meta.glyph) : catIcon(meta.color, meta.glyph, size, muted || score === 0),
             iconSize: [size, size],
           }),
-          zIndexOffset: muted ? -500 : 0,
+          zIndexOffset: glow ? 800 : muted ? -500 : 0,
         });
         const seed: TripStopSeed = {
           kind: "attraction",
@@ -260,6 +311,7 @@ export function IcelandMap({
       };
       for (const a of extended ?? []) addAttraction(a, true);
       for (const a of attractions ?? []) addAttraction(a, false);
+      for (const a of auroraSpots ?? []) addAttraction(a, false, true);
 
       // ---- POIs (zoom-gated, viewport-filtered, capped) ----------------------
       const poiLayer = L.layerGroup().addTo(map);
@@ -301,6 +353,51 @@ export function IcelandMap({
       renderPois();
       map.on("moveend zoomend", renderPois);
 
+      // ---- aurora view: tonight's sky check per station -----------------------
+      for (const sp of auroraSky ?? []) {
+        const meta = SKY_META[sp.quality];
+        const marker = L.marker([sp.station.lat, sp.station.lng], {
+          icon: L.divIcon({ className: "", html: skyDotIcon(meta.color), iconSize: [13, 13] }),
+          zIndexOffset: 600,
+        });
+        marker.bindPopup(
+          `<div style="min-width:170px;display:grid;gap:2px">` +
+            `<strong>${esc(sp.station.name)}</strong>` +
+            `<span style="color:${meta.color};font-weight:600">${esc(meta.label)}</span>` +
+            `<span style="color:#555">${esc(sp.desc ?? "No forecast")} · ${esc(formatForecastTime(sp.at))}</span>` +
+            `<span style="color:#888;font-size:11px">vedur.is forecast — clouds move; check again before heading out</span></div>`,
+        );
+        marker.addTo(map);
+      }
+
+      // ---- weather view: per-station now-chips ---------------------------------
+      for (const s of weatherStations ?? []) {
+        const now = s.forecast[0];
+        if (!now) continue;
+        const marker = L.marker([s.lat, s.lng], {
+          icon: L.divIcon({
+            className: "",
+            html: weatherChipIcon(now.tempC, now.windMs, now.windDir),
+            iconSize: [84, 22],
+            iconAnchor: [42, 11],
+          }),
+          zIndexOffset: 700,
+        });
+        const rows = s.forecast
+          .slice(0, 5)
+          .map(
+            (h) =>
+              `<span style="color:#555">${esc(formatForecastTime(h.time))} · ${h.tempC ?? "–"}°C · ` +
+              `${h.windMs ?? "–"} m/s ${esc(h.windDir ?? "")}${h.desc ? ` · ${esc(h.desc)}` : ""}</span>`,
+          )
+          .join("<br>");
+        marker.bindPopup(
+          `<div style="min-width:200px;display:grid;gap:2px"><strong>${esc(s.name)}</strong>${rows}` +
+            `<a href="https://en.vedur.is" target="_blank" rel="noreferrer" style="color:#0284c7;font-weight:600">Full forecast (vedur.is) ↗</a></div>`,
+        );
+        marker.addTo(map);
+      }
+
       // ---- hazards (topmost) --------------------------------------------------
       for (const h of hazards ?? []) {
         const marker = L.marker([h.lat, h.lng], {
@@ -316,10 +413,14 @@ export function IcelandMap({
         marker.addTo(map);
       }
 
-      // Restore previous view, else fit to data.
+      // Restore previous view, else fit to data — but NEVER auto-fit the
+      // whole-country view ("iceland"): layers stream in asynchronously and a
+      // fit against a partial batch would zoom somewhere arbitrary, and the
+      // moveend persistence would then lock that view in. Route/place embeds
+      // pass their own fitKey and do want the fit.
       if (viewRef.current) {
         map.setView(viewRef.current.center, viewRef.current.zoom, { animate: false });
-      } else if (fitPts.length > 0) {
+      } else if (fitPts.length > 0 && fitKey !== "iceland") {
         map.fitBounds(fitPts, { padding: [30, 30], maxZoom: 11, animate: false });
       }
       map.on("moveend", () => {
@@ -340,7 +441,7 @@ export function IcelandMap({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attractions, extended, pois, routes, conditions, hazards, travelMonth, fitKey]);
+  }, [attractions, extended, pois, routes, conditions, hazards, weatherStations, auroraSky, auroraSpots, travelMonth, fitKey]);
 
   // list → map focus (extension #2)
   useEffect(() => {

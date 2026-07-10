@@ -68,3 +68,35 @@ export function daylightFor(date: Date, lat = REYKJAVIK.lat, lng = REYKJAVIK.lng
     darkWindow,
   };
 }
+
+// ---- Moon (matters as much as Kp: a full moon washes out faint aurora) ------
+
+const PHASE_NAMES = [
+  "New moon", "Waxing crescent", "First quarter", "Waxing gibbous",
+  "Full moon", "Waning gibbous", "Last quarter", "Waning crescent",
+];
+
+export interface MoonInfo {
+  /** 0 (new) – 1 (full). */
+  fraction: number;
+  phaseName: string;
+  rise: string | null; // Iceland time, null = doesn't rise/set today
+  set: string | null;
+  alwaysUp: boolean;
+  /** Bright enough to wash out faint displays. */
+  bright: boolean;
+}
+
+export function moonFor(date: Date, lat = REYKJAVIK.lat, lng = REYKJAVIK.lng): MoonInfo {
+  const ill = SunCalc.getMoonIllumination(date);
+  const times = SunCalc.getMoonTimes(date, lat, lng);
+  const phaseIdx = Math.round(ill.phase * 8) % 8;
+  return {
+    fraction: ill.fraction,
+    phaseName: PHASE_NAMES[phaseIdx],
+    rise: valid(times.rise) ? timeFmt.format(times.rise) : null,
+    set: valid(times.set) ? timeFmt.format(times.set) : null,
+    alwaysUp: !!times.alwaysUp,
+    bright: ill.fraction > 0.65,
+  };
+}

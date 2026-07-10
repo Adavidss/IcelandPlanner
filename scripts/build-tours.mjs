@@ -50,13 +50,21 @@ function longText(v) {
   return null;
 }
 
-/** "- item\n- item" markdown bullets → trimmed lines. */
+/** "- item\n- item" markdown bullets → trimmed plain-text lines
+ *  (also strips Contentful's __bold__ markers and [text](url) links). */
 function bulletLines(v, cap, maxLen) {
   const t = longText(v);
   if (!t) return [];
   return t
     .split("\n")
-    .map((l) => l.replace(/^\s*[-*•]\s*/, "").trim())
+    .map((l) =>
+      l
+        .replace(/^\s*[-*•]\s*/, "")
+        .replace(/__([^_]*)__/g, "$1")
+        .replace(/\*\*([^*]*)\*\*/g, "$1")
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+        .trim(),
+    )
     .filter(Boolean)
     .slice(0, cap)
     .map((l) => (l.length > maxLen ? `${l.slice(0, maxLen - 1)}…` : l));
@@ -86,10 +94,11 @@ function slimListing(node) {
 }
 
 function mergeDetail(tour, d) {
-  if (!d) return { ...tour, months: new Array(12).fill(2), images: [], included: [], highlights: [] };
-  const highlights =
-    (Array.isArray(d.tourHighlights) ? d.tourHighlights.map((h) => longText(h) ?? h?.title).filter(Boolean) : null) ??
-    bulletLines(d.highlights, 8, 120);
+  if (!d) return { ...tour, months: new Array(12).fill(2), images: [], included: [], highlights: [], needToKnow: [] };
+  // tourHighlights is usually {tourHighlights: "__Name__ — blurb\n…"}; rarely an array.
+  const highlights = Array.isArray(d.tourHighlights)
+    ? d.tourHighlights.map((h) => longText(h) ?? h?.title).filter(Boolean).slice(0, 8)
+    : bulletLines(d.tourHighlights ?? d.highlights, 8, 140);
   return {
     ...tour,
     months: monthsFromSeasons(d.season),
@@ -98,8 +107,9 @@ function mergeDetail(tour, d) {
     minimumAge: Number.isFinite(d.minimumAge) ? d.minimumAge : null,
     departsFrom: longText(d.departsFrom),
     duration: longText(d.duration),
-    included: bulletLines(d.included, 10, 90),
-    highlights: (highlights ?? []).slice(0, 8).map((h) => (h.length > 120 ? `${h.slice(0, 119)}…` : h)),
+    included: bulletLines(d.included, 10, 110),
+    highlights,
+    needToKnow: bulletLines(d.needToKnow, 8, 140),
     images: (Array.isArray(d.images) ? d.images : []).map(imgUrl).filter(Boolean).slice(0, 3),
   };
 }

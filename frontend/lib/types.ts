@@ -80,6 +80,7 @@ export interface Tour {
   duration?: string | null;
   included?: string[];
   highlights?: string[];
+  needToKnow?: string[];
   images?: string[];
 }
 

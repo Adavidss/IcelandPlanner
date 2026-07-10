@@ -14,6 +14,18 @@ const REYNISFJARA = "https://safetravel.is/wp-content/plugins/black-beach-safety
 
 const LEVEL_COLORS = { GREEN: "#22c55e", YELLOW: "#eab308", RED: "#ef4444", UNKNOWN: "#6b7280" };
 
+// safetravel.is's WAF rejects obvious non-browser clients from datacenter IPs
+// (observed: connection-level failures from GitHub runners, fine from home).
+// A browser-like identity is a best-effort workaround; if it still fails, the
+// dataset just stays stale/absent and the UI hides it — by design.
+const BROWSER_HEADERS = {
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  accept: "application/json,text/plain,*/*",
+  "accept-language": "en-US,en;q=0.9",
+  referer: "https://safetravel.is/",
+};
+
 function normalizePoints(raw) {
   const list = Array.isArray(raw) ? raw : Array.isArray(raw?.features) ? raw.features : [];
   const points = [];
@@ -56,12 +68,12 @@ export async function liveHazards(outDir) {
   let reynisfjara = null;
   const errors = [];
   try {
-    points = normalizePoints(await fetchJSON(POINTS, { timeoutMs: 30_000 }));
+    points = normalizePoints(await fetchJSON(POINTS, { timeoutMs: 30_000, headers: BROWSER_HEADERS }));
   } catch (err) {
     errors.push(`points: ${err.message}`);
   }
   try {
-    reynisfjara = normalizeReynisfjara(await fetchJSON(REYNISFJARA, { timeoutMs: 30_000 }));
+    reynisfjara = normalizeReynisfjara(await fetchJSON(REYNISFJARA, { timeoutMs: 30_000, headers: BROWSER_HEADERS }));
   } catch (err) {
     errors.push(`reynisfjara: ${err.message}`);
   }

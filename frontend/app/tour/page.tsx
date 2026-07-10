@@ -126,6 +126,17 @@ function TourDetail() {
             </>
           )}
 
+          {(tour.needToKnow ?? []).length > 0 && (
+            <>
+              <h2 className="mt-5 text-sm font-semibold text-strong">Need to know</h2>
+              <ul className="mt-2 space-y-1.5 text-sm text-fg">
+                {tour.needToKnow!.map((h) => (
+                  <li key={h} className="flex gap-2"><span className="text-warn">!</span> {h}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
           <h2 className="mt-5 text-sm font-semibold text-strong">Best months</h2>
           <div className="mt-2">
             <MonthBars months={tour.months} />

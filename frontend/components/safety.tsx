@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 
 import { WindIcon } from "@/components/icons";
-import { formatUpdated } from "@/lib/format";
+import { formatUpdated, httpUrl } from "@/lib/format";
 import { EXTERNAL, fetchAlerts, type TravelAlert } from "@/lib/live";
 import { useSeason } from "@/lib/season-context";
 import type { HazardsFile, RoadsFile, StationForecast } from "@/lib/types";
@@ -22,7 +22,7 @@ export function AlertsBanner() {
       {alerts.slice(0, 3).map((a) => (
         <a
           key={a.id}
-          href={a.link ?? EXTERNAL.safetravel}
+          href={httpUrl(a.link) ?? EXTERNAL.safetravel}
           target="_blank"
           rel="noreferrer"
           className="block rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 hover:bg-warn/15"

@@ -16,6 +16,7 @@ import { ExternalIcon } from "@/components/icons";
 import { CardRail, EmptyState } from "@/components/ui";
 import { getAttractions, getPoi } from "@/lib/api";
 import { CATEGORY_META } from "@/lib/categories";
+import { httpUrl } from "@/lib/format";
 import { distanceLabel, haversineKm } from "@/lib/geo";
 import { legUrl } from "@/lib/maps";
 import { useSeason } from "@/lib/season-context";
@@ -146,11 +147,11 @@ function PlaceDetail() {
               >
                 Directions in Google Maps <ExternalIcon />
               </a>
-              {a.links?.official && (
-                <a href={a.links.official} target="_blank" rel="noreferrer" className="text-sm text-aurora hover:underline">Official site ↗</a>
+              {httpUrl(a.links?.official) && (
+                <a href={httpUrl(a.links?.official)!} target="_blank" rel="noreferrer" className="text-sm text-aurora hover:underline">Official site ↗</a>
               )}
-              {a.links?.wikipedia && (
-                <a href={a.links.wikipedia} target="_blank" rel="noreferrer" className="text-sm text-aurora hover:underline">Wikipedia ↗</a>
+              {httpUrl(a.links?.wikipedia) && (
+                <a href={httpUrl(a.links?.wikipedia)!} target="_blank" rel="noreferrer" className="text-sm text-aurora hover:underline">Wikipedia ↗</a>
               )}
             </div>
           </div>

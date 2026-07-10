@@ -38,6 +38,16 @@ function classify(tags) {
   return null;
 }
 
+/** OSM tags are community-editable — treat URLs as untrusted. Normalize
+ *  schemaless domains to https://, reject any other scheme (javascript:, …). */
+function safeUrl(v) {
+  if (!v || typeof v !== "string") return null;
+  const s = v.trim().split(/[\s;]+/)[0]; // some tags hold multiple URLs
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(\/\S*)?$/i.test(s)) return `https://${s}`;
+  return null;
+}
+
 function slim(el) {
   const tags = el.tags ?? {};
   const cls = classify(tags);
@@ -58,7 +68,7 @@ function slim(el) {
       lng: round5(lng),
       cuisine: tags.cuisine ?? null,
       hours: tags.opening_hours ?? null,
-      website: tags.website ?? tags["contact:website"] ?? null,
+      website: safeUrl(tags.website ?? tags["contact:website"]),
       phone: tags.phone ?? tags["contact:phone"] ?? null,
       brand: tags.brand ?? null,
       town: tags["addr:city"] ?? null,

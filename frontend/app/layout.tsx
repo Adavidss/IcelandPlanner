@@ -9,10 +9,18 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
+// Icons are hand-prefixed with the basePath — metadata icon URLs don't get it
+// automatically in a static export.
+const BASE = "/IcelandPlanner";
+
 export const metadata: Metadata = {
   title: "IcelandPlanner",
   description:
     "Plan and discover an Iceland trip — interactive map, tours, driving routes, live road conditions, and a season-aware itinerary builder.",
+  icons: {
+    icon: `${BASE}/icon.png`,
+    apple: `${BASE}/apple-touch-icon.png`,
+  },
   appleWebApp: {
     capable: true,
     title: "IcelandPlanner",

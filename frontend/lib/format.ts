@@ -50,6 +50,13 @@ export function formatTripDate(d: Date): string {
   return `${weekday}, ${month} ${d.getDate()}`;
 }
 
+/** Untrusted-URL guard: only http(s) survives (blocks javascript:, data:, …).
+ *  Applied to any URL that originates outside this repo (OSM tags, WP API). */
+export function httpUrl(v: string | null | undefined): string | null {
+  if (!v || typeof v !== "string") return null;
+  return /^https?:\/\//i.test(v.trim()) ? v.trim() : null;
+}
+
 export function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")

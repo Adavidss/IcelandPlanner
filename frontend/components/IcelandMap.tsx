@@ -17,7 +17,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 
 import { CATEGORY_META, POI_KIND_META } from "@/lib/categories";
-import { esc, formatUpdated } from "@/lib/format";
+import { esc, formatUpdated, httpUrl } from "@/lib/format";
 import { scoreAt } from "@/lib/season";
 import type {
   Attraction,
@@ -241,7 +241,7 @@ export function IcelandMap({
           durationMin: a.durationMin,
         };
         const detailHref = muted
-          ? (a.links?.wikipedia ?? "#")
+          ? (httpUrl(a.links?.wikipedia) ?? "#")
           : `${BASE}/place/?id=${encodeURIComponent(a.id)}`;
         const lines = [
           `<strong>${esc(a.name)}</strong>`,
@@ -289,7 +289,7 @@ export function IcelandMap({
             `<strong>${esc(p.name)}</strong>`,
             `<span style="color:#555">${esc(meta.label)}${p.subkind && p.subkind !== p.kind ? ` · ${esc(p.subkind.replace(/_/g, " "))}` : ""}${p.cuisine ? ` · ${esc(p.cuisine.split(";").slice(0, 2).join(", "))}` : ""}</span>`,
             p.hours ? `<span style="color:#888;font-size:11px">Hours: ${esc(p.hours)}</span>` : "",
-            p.website ? `<a href="${esc(p.website)}" target="_blank" rel="noreferrer" style="color:#059669;font-weight:600">Website ↗</a>` : "",
+            httpUrl(p.website) ? `<a href="${esc(httpUrl(p.website)!)}" target="_blank" rel="noreferrer" style="color:#059669;font-weight:600">Website ↗</a>` : "",
             onAddStop ? addStopButton(seed) : "",
             `<a href="${gmaps(p.lat, p.lng)}" target="_blank" rel="noreferrer" style="color:#0284c7;font-weight:600">Directions ↗</a>`,
           ].filter(Boolean);

@@ -108,8 +108,8 @@ function TourDetail() {
             <>
               <h2 className="mt-5 text-sm font-semibold text-strong">Highlights</h2>
               <ul className="mt-2 space-y-1.5 text-sm text-fg">
-                {tour.highlights!.map((h) => (
-                  <li key={h} className="flex gap-2"><span className="text-aurora">•</span> {h}</li>
+                {tour.highlights!.map((h, i) => (
+                  <li key={i} className="flex gap-2"><span className="text-aurora">•</span> {h}</li>
                 ))}
               </ul>
             </>
@@ -119,8 +119,8 @@ function TourDetail() {
             <>
               <h2 className="mt-5 text-sm font-semibold text-strong">Included</h2>
               <ul className="mt-2 space-y-1.5 text-sm text-fg">
-                {tour.included!.map((h) => (
-                  <li key={h} className="flex gap-2"><span className="text-ice">✓</span> {h}</li>
+                {tour.included!.map((h, i) => (
+                  <li key={i} className="flex gap-2"><span className="text-ice">✓</span> {h}</li>
                 ))}
               </ul>
             </>
@@ -130,8 +130,8 @@ function TourDetail() {
             <>
               <h2 className="mt-5 text-sm font-semibold text-strong">Need to know</h2>
               <ul className="mt-2 space-y-1.5 text-sm text-fg">
-                {tour.needToKnow!.map((h) => (
-                  <li key={h} className="flex gap-2"><span className="text-warn">!</span> {h}</li>
+                {tour.needToKnow!.map((h, i) => (
+                  <li key={i} className="flex gap-2"><span className="text-warn">!</span> {h}</li>
                 ))}
               </ul>
             </>
@@ -187,7 +187,7 @@ function TourDetail() {
         <>
           <h2 className="mt-8 text-lg font-semibold text-strong">Similar tours</h2>
           <div className="mt-3">
-            <CardRail>{rec.map((t) => <TourCard key={t.id} tour={t} compact />)}</CardRail>
+            <CardRail>{rec.map((t) => <TourCard key={t.slug} tour={t} compact />)}</CardRail>
           </div>
         </>
       )}

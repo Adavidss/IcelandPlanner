@@ -136,7 +136,7 @@ export default function ToursPage() {
       {filtered.length > 0 ? (
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((t) => (
-            <TourCard key={t.id} tour={t} />
+            <TourCard key={t.slug} tour={t} />
           ))}
         </div>
       ) : (

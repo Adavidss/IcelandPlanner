@@ -161,7 +161,7 @@ export default function HomePage() {
 
       <Section title={`Tours running in ${MONTH_NAMES[month]}`} blurb="Bookable day tours from Reykjavik Excursions." seeAll={{ href: "/tours" }}>
         {monthTours.length > 0 ? (
-          <CardRail>{monthTours.map((t) => <TourCard key={t.id} tour={t} compact />)}</CardRail>
+          <CardRail>{monthTours.map((t) => <TourCard key={t.slug} tour={t} compact />)}</CardRail>
         ) : (
           <EmptyState>Tour data loads after the first data build.</EmptyState>
         )}

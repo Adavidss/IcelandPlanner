@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 
+import { AttractionQuickView } from "@/components/AttractionQuickView";
 import { DaylightCard } from "@/components/DaylightCard";
 import { SeasonBadge } from "@/components/SeasonBadge";
 import { ArrowDownIcon, ArrowUpIcon, CarIcon, TrashIcon } from "@/components/icons";
@@ -105,6 +106,7 @@ function TripStopRow({
   attractionById: Map<string, Attraction>;
 }) {
   const { moveStop, moveStopToDay, removeStop, setStopField } = useTrip();
+  const [showCard, setShowCard] = useState(false);
   const day = trip.days[dayIndex];
   const ref = stop.kind === "attraction" && stop.refId ? attractionById.get(stop.refId) : undefined;
 
@@ -122,7 +124,17 @@ function TripStopRow({
       <div className="flex items-center gap-2">
         <span className="w-5 shrink-0 text-center text-xs font-semibold text-muted">{stopIndex + 1}</span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-strong">{stop.name}</p>
+          {ref ? (
+            <button
+              onClick={() => setShowCard(true)}
+              className="block max-w-full truncate text-left text-sm font-medium text-strong underline-offset-2 hover:text-aurora hover:underline"
+              title={`About ${stop.name}`}
+            >
+              {stop.name}
+            </button>
+          ) : (
+            <p className="truncate text-sm font-medium text-strong">{stop.name}</p>
+          )}
           <p className="text-[11px] text-muted">
             {stop.kind}
             {stop.durationMin ? ` · ~${stop.durationMin} min visit` : ""}
@@ -170,6 +182,7 @@ function TripStopRow({
         </div>
       </div>
       {warn && <p className="ml-7 mt-1 text-xs font-medium text-danger">⚠ {warn}</p>}
+      {showCard && ref && <AttractionQuickView a={ref} month={month} onClose={() => setShowCard(false)} />}
       {stop.lat !== null && stop.lng !== null && (
         <p className="ml-7 mt-0.5">
           <a

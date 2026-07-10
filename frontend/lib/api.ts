@@ -5,6 +5,7 @@
 
 import type {
   AttractionsFile,
+  DayBlocksFile,
   Meta,
   PoiFile,
   PoiKind,
@@ -56,6 +57,10 @@ const POI_FILE: Record<PoiKind, string> = {
 
 export function getPoi(kind: PoiKind): Promise<PoiFile> {
   return loadJSON<PoiFile>(POI_FILE[kind], { generated_at: "", source: "overpass", count: 0, poi: [] });
+}
+
+export function getDayBlocks(): Promise<DayBlocksFile> {
+  return loadJSON<DayBlocksFile>("day-blocks.json", { blocks: [] });
 }
 
 export function getRoutes(): Promise<RoutesFile> {

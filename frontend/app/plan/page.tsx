@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { PrintIcon } from "@/components/icons";
 import { TripDayCard, TripPicker } from "@/components/planner";
+import { PresetTrips } from "@/components/PresetTrips";
 import { EmptyState } from "@/components/ui";
 import { getAttractions } from "@/lib/api";
 import { getWeather } from "@/lib/live";
@@ -91,11 +92,13 @@ export default function PlanPage() {
         <TripPicker />
       </div>
 
+      <PresetTrips />
+
       {!activeTrip ? (
         <div className="mt-6">
           <EmptyState>
-            No trips yet. Hit <span className="font-medium text-fg">+ New trip</span>, or just add any place from
-            the <Link href="/map" className="text-aurora hover:underline">map</Link>,{" "}
+            No trips yet. Start from a trip idea above, hit <span className="font-medium text-fg">+ New trip</span>,
+            or just add any place from the <Link href="/map" className="text-aurora hover:underline">map</Link>,{" "}
             <Link href="/tours" className="text-aurora hover:underline">tours</Link> or{" "}
             <Link href="/routes" className="text-aurora hover:underline">routes</Link> — a trip appears automatically.
           </EmptyState>

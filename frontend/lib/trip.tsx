@@ -99,6 +99,8 @@ interface TripState {
   /** Atomically append a whole route: new days split on dayBreaks (stop indexes
    *  that begin a new day). Creates/activates a trip when none exists. */
   bulkAdd: (name: string, seeds: TripStopSeed[], dayBreaks: number[]) => void;
+  /** Create a brand-new trip from pre-built days (preset trips) and activate it. */
+  createTripFromDays: (name: string, days: { note: string; seeds: TripStopSeed[] }[]) => string;
   removeStop: (tripId: string, dayIndex: number, stopId: string) => void;
   moveStop: (tripId: string, dayIndex: number, stopIndex: number, delta: -1 | 1) => void;
   moveStopToDay: (tripId: string, fromDay: number, stopId: string, toDay: number) => void;
@@ -226,6 +228,27 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
           }));
         }
         return [targetTrip.name, idx];
+      },
+      createTripFromDays: (name, dayDefs) => {
+        const id = slugify(name, new Set(trips.map((t) => t.id)));
+        const trip: Trip = {
+          id,
+          name,
+          startDate: null,
+          days: dayDefs.map((d) => ({
+            id: uid(),
+            note: d.note,
+            stops: d.seeds
+              .map((seed) => normalizeStop({ ...seed, id: uid() }))
+              .filter((s): s is TripStop => s !== null),
+          })),
+          created: todayISO(),
+          updated: todayISO(),
+        };
+        if (trip.days.length === 0) trip.days.push({ id: uid(), note: "", stops: [] });
+        mutate((prev) => [...prev, trip]);
+        setActive(id);
+        return id;
       },
       bulkAdd: (name, seeds, dayBreaks) => {
         const breaks = new Set(dayBreaks);

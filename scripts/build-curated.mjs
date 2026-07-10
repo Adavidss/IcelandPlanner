@@ -91,12 +91,39 @@ function validateRoutes(attractionIds) {
   return doc;
 }
 
+function validateDayBlocks(attractionIds) {
+  const file = "data/curated/day-blocks.json";
+  const doc = readJSON(file);
+  if (!doc || !Array.isArray(doc.blocks)) fail(file, "missing { blocks: [] }");
+  const ids = new Set();
+  for (const b of doc.blocks) {
+    const where = `block "${b?.id ?? "?"}"`;
+    if (!b.id || ids.has(b.id)) fail(file, `${where}: missing/duplicate id`);
+    ids.add(b.id);
+    for (const k of ["title", "blurb"]) if (!b[k]) fail(file, `${where}: missing ${k}`);
+    if (!["sw", "ring"].includes(b.zone)) fail(file, `${where}: zone must be sw|ring`);
+    if (!Number.isFinite(b.order)) fail(file, `${where}: order must be a number`);
+    if (![1, 2, 3].includes(b.level)) fail(file, `${where}: level must be 1|2|3`);
+    if (!Array.isArray(b.months) || b.months.length !== 12 || b.months.some((m) => ![0, 1, 2, 3].includes(m))) {
+      fail(file, `${where}: months must be 12 scores of 0–3`);
+    }
+    if (!Array.isArray(b.stops) || b.stops.length === 0) fail(file, `${where}: stops[] required`);
+    for (const s of b.stops) {
+      if (!attractionIds.has(s)) fail(file, `${where}: stop "${s}" is not a curated attraction id`);
+    }
+  }
+  return doc;
+}
+
 export function buildCurated() {
   const attractions = validateAttractions();
-  const routes = validateRoutes(new Set(attractions.attractions.map((a) => a.id)));
+  const attractionIds = new Set(attractions.attractions.map((a) => a.id));
+  const routes = validateRoutes(attractionIds);
+  const dayBlocks = validateDayBlocks(attractionIds);
 
   writeJSON(`${OUT_DIR}/attractions.json`, { version: 1, count: attractions.attractions.length, ...attractions });
   writeJSON(`${OUT_DIR}/routes.json`, { version: 1, count: routes.routes.length, ...routes });
+  writeJSON(`${OUT_DIR}/day-blocks.json`, { version: 1, count: dayBlocks.blocks.length, ...dayBlocks });
   for (const r of routes.routes) {
     writeJSON(`${OUT_DIR}/routes/${r.id}.geojson`, readJSON(`data/curated/routes/${r.id}.geojson`));
   }
@@ -109,7 +136,8 @@ export function buildCurated() {
   }
 
   console.log(
-    `build-curated: ${attractions.attractions.length} attractions, ${routes.routes.length} routes` +
+    `build-curated: ${attractions.attractions.length} attractions, ${routes.routes.length} routes, ` +
+      `${dayBlocks.blocks.length} day blocks` +
       `${roadGeo?.segments?.length ? `, ${roadGeo.segments.length} road segments` : " (no road geometry yet)"}`,
   );
   return {

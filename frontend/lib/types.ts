@@ -151,6 +151,28 @@ export interface RouteGeometry {
   }[];
 }
 
+// ---- day-blocks.json (preset-trip building blocks) --------------------------
+
+export interface DayBlock {
+  id: string;
+  title: string;
+  blurb: string;
+  /** sw = doable on a Reykjavík-based trip; ring = needs the full circle. */
+  zone: "sw" | "ring";
+  /** Position along the trip flow (sw: out-and-back; ring: clockwise). */
+  order: number;
+  /** 1 greatest hits · 2 explorer · 3 off the beaten path. */
+  level: 1 | 2 | 3;
+  months: number[];
+  stops: string[];
+}
+
+export interface DayBlocksFile {
+  version?: number;
+  count?: number;
+  blocks: DayBlock[];
+}
+
 // ---- road-geometry.json (tier-1 static) + roads.json (tier-2 live) --------
 
 export interface RoadGeometrySegment {

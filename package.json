@@ -1,0 +1,15 @@
+{
+  "name": "icelandplanner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Data pipeline + static frontend for the IcelandPlanner trip planner (GitHub Pages).",
+  "scripts": {
+    "data:build": "node scripts/build-all.mjs",
+    "data:offline": "node scripts/build-all.mjs --offline",
+    "data:poi": "node scripts/build-poi.mjs --fetch",
+    "data:wiki": "node scripts/build-wiki.mjs --fetch",
+    "data:live": "node scripts/live-all.mjs --out .live-preview",
+    "data:snapshot": "node scripts/snapshot-cache.mjs"
+  }
+}

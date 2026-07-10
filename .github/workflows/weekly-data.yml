@@ -1,0 +1,49 @@
+name: Weekly data cache (POI + wiki + tours snapshot)
+
+# Refresh the committed last-good caches in data/cache/ that every deploy
+# ships: Overpass POIs, the Wikipedia/Wikidata harvest, and a re.is tours
+# snapshot (outage fallback). A failed fetch week costs nothing — the scripts
+# exit 0 without touching outputs, and snapshot-cache refuses bad promotions.
+on:
+  schedule:
+    - cron: "47 4 * * 1" # Mondays 04:47 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-data
+  cancel-in-progress: false # never cancel mid-commit
+
+jobs:
+  refresh-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Fetch Overpass POIs
+        run: node scripts/build-poi.mjs --fetch
+      - name: Harvest Wikipedia/Wikidata
+        run: node scripts/build-wiki.mjs --fetch
+      - name: Fetch fresh tours snapshot
+        run: node scripts/build-tours.mjs
+      - name: Promote fresh outputs into data/cache
+        run: node scripts/snapshot-cache.mjs
+
+      - name: Commit cache if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/cache/
+          if git diff --cached --quiet; then
+            echo "cache unchanged"
+          else
+            git commit -m "data: weekly cache refresh $(date -u +%F)"
+            git pull --rebase origin main
+            git push
+          fi

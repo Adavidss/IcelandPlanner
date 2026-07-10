@@ -1,0 +1,18 @@
+{
+  "comment": "Veður forecast stations (xmlweather ids verified live 2026-07-09). Coords are the town/site, used for nearest-station lookups.",
+  "stations": [
+    { "id": 1, "name": "Reykjavík", "region": "capital", "lat": 64.127, "lng": -21.903 },
+    { "id": 990, "name": "Keflavík Airport", "region": "reykjanes", "lat": 63.985, "lng": -22.605 },
+    { "id": 6420, "name": "Árnes (south lowlands)", "region": "south", "lat": 64.043, "lng": -20.247 },
+    { "id": 802, "name": "Vík area (Vatnsskarðshólar)", "region": "south", "lat": 63.424, "lng": -19.181 },
+    { "id": 6272, "name": "Kirkjubæjarklaustur", "region": "south", "lat": 63.787, "lng": -18.061 },
+    { "id": 6499, "name": "Skaftafell", "region": "southeast", "lat": 64.016, "lng": -16.973 },
+    { "id": 5544, "name": "Höfn", "region": "southeast", "lat": 64.253, "lng": -15.208 },
+    { "id": 571, "name": "Egilsstaðir", "region": "east", "lat": 65.283, "lng": -14.401 },
+    { "id": 3696, "name": "Húsavík", "region": "northeast", "lat": 66.045, "lng": -17.339 },
+    { "id": 3471, "name": "Akureyri", "region": "north", "lat": 65.699, "lng": -18.078 },
+    { "id": 2644, "name": "Ísafjörður", "region": "westfjords", "lat": 66.06, "lng": -23.166 },
+    { "id": 178, "name": "Stykkishólmur", "region": "west", "lat": 65.073, "lng": -22.733 },
+    { "id": 6935, "name": "Hveravellir (highlands)", "region": "highlands", "lat": 64.866, "lng": -19.558 }
+  ]
+}

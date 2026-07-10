@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Syntax-check pipeline scripts
+        run: |
+          for f in scripts/*.mjs scripts/lib/*.mjs scripts/dev/*.mjs; do node --check "$f"; done
+
+      # Zero network: validates curated data on every PR and exercises the
+      # frontend build against real-shaped data from the committed caches.
+      - name: Offline data build
+        run: node scripts/build-all.mjs --offline
+
+      - name: Install frontend
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build

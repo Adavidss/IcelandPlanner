@@ -1,0 +1,21 @@
+# deps / build
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/.preview/
+*.tsbuildinfo
+npm-debug.log*
+
+# generated data — built fresh by scripts/build-all.mjs each deploy;
+# the committed fallbacks live in data/cache/ instead
+frontend/public/data/
+
+# local tier-2 preview output
+.live-preview/
+
+# env / os
+.env
+.env.local
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev", "--", "-p", "3030"],
+      "autoPort": false,
+      "port": 3030
+    },
+    {
+      "name": "static",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "preview"],
+      "autoPort": false,
+      "port": 3030
+    }
+  ]
+}
